@@ -1,7 +1,6 @@
 import numpy as np
 import cv2 as cv
 from matplotlib import pyplot as plt
-import elice_utils
 
 
 def create_histogram(images, channels, mask, histSize, ranges):
@@ -65,7 +64,6 @@ def main():
 
     # 엘리스 화면에 그래프를 표시합니다.
     plt.savefig("masked_graph.png")
-    elice_utils.send_image("masked_graph.png")
     plt.close()
 
     return channels, ranges, x_range, y_range

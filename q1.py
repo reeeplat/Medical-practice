@@ -5,10 +5,6 @@ import PIL
 import matplotlib.image as img
 import matplotlib.pyplot as plt
 
-from elice_utils import EliceUtils
-
-elice_utils = EliceUtils()
-
 
 def load_data(path):
     return pd.read_csv(path)
@@ -46,7 +42,6 @@ def sampleVisualize(np_images):
     plt.show()
     plt.savefig("plot.png")
 
-    elice_utils.send_image("plot.png")
     print("\n1-1. Numpy array로 변환된 원본 이미지의 크기:", np.array(ndarray).shape)
     print(
         "\n1-2. Numpy array로 변환된 resize 후 이미지 크기:",
@@ -57,7 +52,6 @@ def sampleVisualize(np_images):
     plt.show()
     plt.savefig("plot_re.png")
 
-    elice_utils.send_image("plot_re.png")
     print("\n2-1. Numpy array로 변환된 원본 이미지: \n", ndarray)
     print("\n2-2. Numpy array로 변환된 resize 후 이미지 행렬: \n", np_images[0])
 
