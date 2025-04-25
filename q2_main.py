@@ -1,117 +1,75 @@
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import numpy as np
+import cv2 as cv
+from matplotlib import pyplot as plt
+import elice_utils
 
-import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras import layers, Sequential
-from tensorflow.keras.optimizers import SGD
 
-SEED = 2022
+def create_histogram(images, channels, mask, histSize, ranges):
+    histr = cv.calcHist(images, channels, mask, histSize, ranges)
+    return histr
 
-def get_image_generator(img_size, batch_size):
-    train_generator = ImageDataGenerator(rescale=1./255)
-    train_data_gen = train_generator.flow_from_directory("./q2/datasets/train",
-                                                         batch_size=batch_size,
-                                                         shuffle=True,
-                                                         target_size=img_size,
-                                                         class_mode="binary")
 
-    valid_generator = ImageDataGenerator(rescale=1./255)
-    valid_data_gen = valid_generator.flow_from_directory("./q2/datasets/valid",
-                                                         batch_size=batch_size,
-                                                         shuffle=False,
-                                                         target_size=img_size,
-                                                         class_mode="binary")
-
-    test_generator = ImageDataGenerator(rescale=1./255)
-    test_data_gen = test_generator.flow_from_directory("./q2/datasets/test",
-                                                       batch_size=batch_size,
-                                                       shuffle=False,
-                                                       target_size=img_size,
-                                                       class_mode="binary")
-
-    return train_data_gen, valid_data_gen, test_data_gen
-
-def build_cnn_model(img_size, num_classes=2):
-    model = Sequential()
-    img_size += (3,)
+def create_mask(img, x_range, y_range):
+    mask = np.zeros(img.shape[:2], np.uint8)
+    # x축의 x1~x2 구간, y축의 y1~y2 구간에 255의 값을 할당합니다.
+    mask[y_range[0] : y_range[1], x_range[0] : x_range[1]] = 255
     
-    # TODO: [지시사항 1번] 기본 CNN 모델을 만드세요.
-    model.add(layers.Conv2D(16, kernel_size=(3, 3), padding="same", activation="relu", input_shape=img_size))
-    model.add(layers.MaxPool2D(2))
-    
-    model.add(layers.Conv2D(32, kernel_size=(3, 3), padding="same", activation="relu"))
-    model.add(layers.MaxPool2D(2))
+    # cv.bitwise_and()함수를 활용하여 masked_img를 구현합니다.
+    masked_img = cv.bitwise_and(img, img, mask=mask)
+    return mask, masked_img
 
-    model.add(layers.Conv2D(64, kernel_size=(3, 3), padding="same", activation="relu"))
-    model.add(layers.MaxPool2D(2))
-
-    model.add(layers.GlobalAveragePooling2D())
-    model.add(layers.Dense(256, activation="relu"))
-    model.add(layers.Dense(num_classes, activation="softmax"))
-
-    return model
-
-def build_reg_cnn_model(img_size, num_classes=2):
-    model = Sequential()
-    img_size += (3,)
-    
-    # TODO: [지시사항 2번] Batch Normalization과 Dropout이 추가된 CNN 모델을 만드세요.
-    model.add(layers.Conv2D(16, kernel_size=(3, 3), padding="same", input_shape=img_size))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Activation("relu"))
-    model.add(layers.MaxPool2D(2))
-    
-    model.add(layers.Conv2D(32, kernel_size=(3, 3), padding="same"))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Activation("relu"))
-    model.add(layers.MaxPool2D(2))
-
-    model.add(layers.Conv2D(64, kernel_size=(3, 3), padding="same"))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Activation("relu"))
-    model.add(layers.MaxPool2D(2))
-
-    model.add(layers.GlobalAveragePooling2D())
-    model.add(layers.Dense(256, activation="relu"))
-    model.add(layers.Dropout(rate=0.5))
-    model.add(layers.Dense(num_classes, activation="softmax"))
-
-    return model
-
-def run_model(model, train_data_gen, valid_data_gen, test_data_gen, batch_size, epochs=30):
-    train_len, valid_len, test_len = len(train_data_gen), len(valid_data_gen), len(test_data_gen)
-    train_len, valid_len, test_len = train_len * batch_size, valid_len * batch_size, test_len * batch_size
-
-    # TODO: [지시사항 3번] SGD optimizer를 설정하세요.
-    optimizer = SGD(learning_rate=1e-2, momentum=0.9, nesterov=True)
-    
-    # TODO: [지시사항 3번] 모델의 optimizer, 손실 함수, 평가 지표를 설정하세요.
-    model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    
-    # 모델 학습을 위한 hyperparameter를 설정합니다.
-    hist = model.fit(train_data_gen, epochs=epochs, steps_per_epoch=(train_len // batch_size),
-                     validation_data=valid_data_gen, validation_steps=(valid_len // batch_size),
-                     verbose=2)
-    
-    test_loss, test_acc = model.evaluate(test_data_gen)
-    
-    return optimizer, hist, test_loss, test_acc
 
 def main():
-    tf.random.set_seed(SEED)
+    img = cv.imread("normal.PNG", cv.IMREAD_GRAYSCALE)
+    height, width = img.shape
 
-    batch_size = 64
-    img_size = (32, 32)
-    train_data_gen, valid_data_gen, test_data_gen = get_image_generator(img_size, batch_size)
-
-    cnn_model = build_cnn_model(img_size)
-    reg_cnn_model = build_reg_cnn_model(img_size)
-    _, _, cnn_test_loss, cnn_test_acc = run_model(cnn_model, train_data_gen, valid_data_gen, test_data_gen, batch_size)
-    _, _, reg_cnn_test_loss, reg_cnn_test_acc = run_model(reg_cnn_model, train_data_gen, valid_data_gen, test_data_gen, batch_size)
+    """
+    지시사항 1. channels 에 적절한 값을 입력하세요.
+    실습에서 사용하는 이미지는 gray scale 입니다.
+    """
+    channels = None
     
-    print("[기본 CNN] 테스트 Loss: {:.5f}, 테스트 정확도: {:.3f}%".format(cnn_test_loss, cnn_test_acc * 100))
-    print("[정규화된 CNN] 테스트 Loss: {:.5f}, 테스트 정확도: {:.3f}%".format(reg_cnn_test_loss, reg_cnn_test_acc * 100))
+    # 전체 영역에 대한 계산을 수행합니다. (수정 부분 X)
+    mask = None
+    # 히스토그램의 bin 갯수
+    histSize = [256]
+    
+    """
+    지시사항 2. 모든 그레이 레벨(명암)을 사용하도록 ranges 범위를 조정하세요. 
+    """
+    ranges = [None, None]
+
+    # 원래 이미지의 히스토그램을 출력합니다.
+    hist_full = create_histogram([img], channels, mask, histSize, ranges)
+
+    """
+    지시사항 3. 이미지에 마스킹을 할 부분을 지정하기 위해
+    x_range와 y_range의 범위를 지정하세요.
+    이미지의 가로와 세로 크기인 width, height를 활용하세요.
+    """
+    x_range = [None, None]
+    y_range = [None, None]
+    
+    mask, masked_img = create_mask(img, x_range, y_range)
+    
+    # 마스크를 포함한 히스토그램과 제외한 히스토그램을 출력합니다.
+    hist_mask = create_histogram([img], channels, mask, histSize, ranges)
+
+    plt.subplot(221), plt.imshow(img, "gray")
+    plt.subplot(222), plt.imshow(masked_img, "gray")
+    plt.subplot(223), plt.plot(hist_full)
+    plt.xlim([0, 256])
+    plt.subplot(224), plt.plot(hist_mask)
+    plt.xlim([0, 256])
+    plt.show()
+
+    # 엘리스 화면에 그래프를 표시합니다.
+    plt.savefig("masked_graph.png")
+    elice_utils.send_image("masked_graph.png")
+    plt.close()
+
+    return channels, ranges, x_range, y_range
+
 
 if __name__ == "__main__":
     main()
